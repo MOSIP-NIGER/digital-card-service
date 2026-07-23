@@ -71,11 +71,5 @@ jobs:
             COMMIT_HASH=${{ steps.vars.outputs.commit_hash }}
             COMMIT_ID=${{ steps.vars.outputs.commit_id }}
             BUILD_TIME=${{ steps.vars.outputs.build_time }}
-            spring_config_label=${{ vars.SPRING_CONFIG_LABEL }}
-            active_profile=${{ vars.ACTIVE_PROFILE }}
-            spring_config_url=${{ vars.SPRING_CONFIG_URL }}
-            artifactory_url=${{ vars.ARTIFACTORY_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  
