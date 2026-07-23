@@ -1,0 +1,88 @@
+name: Digital-card-service manual build
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Message for manually triggering'
+        required: false
+        default: 'Triggered for Updates'
+        type: string
+
+  push:
+    branches:
+      - '!master'
+      - dst-dev-*
+      - mec-*
+
+env:
+  IMAGE_NAME: digital-card-service
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: maven
+
+      - name: Build avec Maven
+        run: mvn -B clean package -DskipTests
+
+      - name: Préparer les métadonnées de build
+        id: vars
+        run: |
+          echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "commit_id=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "build_time=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+      - name: Connexion à Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.ACTOR_DOCKER_HUB }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extraire les tags Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DEV_NAMESPACE_DOCKER_HUB }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build et push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            SOURCE=github
+            COMMIT_HASH=${{ steps.vars.outputs.commit_hash }}
+            COMMIT_ID=${{ steps.vars.outputs.commit_id }}
+            BUILD_TIME=${{ steps.vars.outputs.build_time }}
+            spring_config_label=${{ vars.SPRING_CONFIG_LABEL }}
+            active_profile=${{ vars.ACTIVE_PROFILE }}
+            spring_config_url=${{ vars.SPRING_CONFIG_URL }}
+            artifactory_url=${{ vars.ARTIFACTORY_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Notification Slack
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Build digital-card-service : ${{ job.status }}'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
