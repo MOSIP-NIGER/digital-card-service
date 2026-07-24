@@ -55,6 +55,7 @@ jobs:
           images: ${{ secrets.DEV_NAMESPACE_DOCKER_HUB }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
             type=sha
 
       - name: Setup Docker Buildx
